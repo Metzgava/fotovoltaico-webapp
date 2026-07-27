@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Impianto Fotovoltaico — Ammortamento &amp; Gestione</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☀️</text></svg>">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">☀️</div>
+      <div class="brand-text">
+        <div class="brand-title">Impianto FV</div>
+        <div class="brand-sub" id="brand-sub">12.000 kWh/anno</div>
+      </div>
+    </div>
+    <nav class="nav" id="nav">
+      <button class="nav-item active" data-tab="dashboard"><span class="nav-ico">📊</span>Dashboard</button>
+      <button class="nav-item" data-tab="parametri"><span class="nav-ico">⚙️</span>Parametri</button>
+      <button class="nav-item" data-tab="mensili"><span class="nav-ico">🗓️</span>Dati mensili</button>
+      <button class="nav-item" data-tab="bollette"><span class="nav-ico">🧾</span>Bollette bimestrali</button>
+      <button class="nav-item" data-tab="manutenzione"><span class="nav-ico">🔧</span>Manutenzione</button>
+      <button class="nav-item" data-tab="riepilogo"><span class="nav-ico">📋</span>Riepilogo annuale</button>
+      <button class="nav-item" data-tab="grafici"><span class="nav-ico">📈</span>Grafici</button>
+      <button class="nav-item" data-tab="topbottom"><span class="nav-ico">🏆</span>Mesi Top/Bottom</button>
+      <button class="nav-item" data-tab="istruzioni"><span class="nav-ico">📖</span>Istruzioni</button>
+    </nav>
+    <div class="sidebar-footer">
+      <button id="btn-export" class="ghost-btn" title="Esporta backup JSON">⬇ Backup</button>
+      <button id="btn-import" class="ghost-btn" title="Importa backup JSON">⬆ Ripristina</button>
+      <input type="file" id="file-import" accept="application/json" hidden>
+    </div>
+  </aside>
+
+  <main class="content">
+    <section id="tab-dashboard" class="tab active"></section>
+    <section id="tab-parametri" class="tab"></section>
+    <section id="tab-mensili" class="tab"></section>
+    <section id="tab-bollette" class="tab"></section>
+    <section id="tab-manutenzione" class="tab"></section>
+    <section id="tab-riepilogo" class="tab"></section>
+    <section id="tab-grafici" class="tab"></section>
+    <section id="tab-topbottom" class="tab"></section>
+    <section id="tab-istruzioni" class="tab"></section>
+  </main>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="calc.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
