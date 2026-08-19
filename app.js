@@ -638,12 +638,11 @@ function renderTopBottom(model) {
 }
 
 function miniRankTable(title, list, field, unit) {
-  const table = h("table", { class: "data-table" });
-  table.appendChild(h("thead", {}, [h("tr", {}, [h("th", { class: "left" }, ["Mese"]), h("th", {}, [unit])])]));
-  const tbody = h("tbody");
-  list.forEach(item => tbody.appendChild(h("tr", {}, [h("td", { class: "left" }, [item.mese]), h("td", {}, [fmtNum(item[field])])])));
-  table.appendChild(tbody);
-  return h("div", { class: "field" }, [h("label", {}, [title]), h("div", { class: "table-scroll" }, [table])]);
+  const rows = list.map(item => h("div", { class: "rank-row" }, [
+    h("span", { class: "rank-month" }, [item.mese]),
+    h("span", { class: "rank-value" }, [fmtNum(item[field]) + " " + unit]),
+  ]));
+  return h("div", { class: "field" }, [h("label", {}, [title]), h("div", { class: "rank-list" }, rows)]);
 }
 
 /* ==========================================================================
