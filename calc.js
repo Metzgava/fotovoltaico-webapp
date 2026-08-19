@@ -45,8 +45,8 @@ function avgMese(mesiObj, field) {
 /* --- helpers su "Bollette bimestrali" di un anno: {1:{...}..6:{...}} --- */
 function totaleBimestre(b) {
   if (!b) return 0;
-  const e = Number(b.costoEnergia) || 0, f = Number(b.costiFissi) || 0, i = Number(b.iva) || 0;
-  return e + f + i;
+  const e = Number(b.costoEnergia) || 0, g = Number(b.speseGestione) || 0, o = Number(b.oneriSistema) || 0, i = Number(b.iva) || 0;
+  return e + g + o + i;
 }
 function sumBollette(bimObj, field) {
   if (!bimObj) return 0;
@@ -71,7 +71,7 @@ function computeModel(state) {
   const p = state.parametri;
   const durata = p.durataAnalisi;
 
-  const realHist = { G: [], J: [], K: [], L: [], V: [], W: [], X: [] };
+  const realHist = { G: [], J: [], K: [], L: [], V: [], W: [], Y: [], X: [] };
   const rows = [];
   let prevP = 0, prevAB = 0;
 
@@ -81,7 +81,7 @@ function computeModel(state) {
     const nCompilati = contaMesiCompilati(mesi);
     const stato = nCompilati === 12 ? "Reale" : "Stima";
 
-    let D, E, F, G, H, I, J, K, L, V, W, X;
+    let D, E, F, G, H, I, J, K, L, V, W, Y, X;
 
     if (stato === "Reale") {
       D = sumMese(mesi, "kwhProdotti");
@@ -95,7 +95,8 @@ function computeModel(state) {
       K = sumMese(mesi, "contributoGse");
       L = Number((state.manutenzione[anno] ?? 0)) || 0;
       V = sumBollette(bim, "costoEnergia");
-      W = sumBollette(bim, "costiFissi");
+      W = sumBollette(bim, "speseGestione");
+      Y = sumBollette(bim, "oneriSistema");
       X = sumBollette(bim, "iva");
     } else {
       D = p.producibilitaAnnuaNominale;
@@ -109,6 +110,7 @@ function computeModel(state) {
       L = avgOrZero(realHist.L);
       V = avgOrZero(realHist.V);
       W = avgOrZero(realHist.W);
+      Y = avgOrZero(realHist.Y);
       X = avgOrZero(realHist.X);
     }
 
@@ -120,12 +122,12 @@ function computeModel(state) {
     const S = I - M;
     const AB = prevAB + M;
 
-    const row = { anno, annoSolare, stato, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R: p.costoIniziale, S, V, W, X, AB };
+    const row = { anno, annoSolare, stato, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R: p.costoIniziale, S, V, W, Y, X, AB };
     rows.push(row);
 
     if (stato === "Reale") {
       realHist.G.push(G); realHist.J.push(J); realHist.K.push(K); realHist.L.push(L);
-      realHist.V.push(V); realHist.W.push(W); realHist.X.push(X);
+      realHist.V.push(V); realHist.W.push(W); realHist.Y.push(Y); realHist.X.push(X);
     }
     prevP = P; prevAB = AB;
   }

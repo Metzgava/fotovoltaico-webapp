@@ -67,12 +67,12 @@ function buildSeedState() {
   state.datiMensili[1] = anno1Mesi;
 
   state.bollette[1] = {
-    1: { costoEnergia: 0, costiFissi: 0, iva: 0 },
-    2: { costoEnergia: 16, costiFissi: 19, iva: 5 },
-    3: { costoEnergia: 12, costiFissi: 19, iva: 5 },
-    4: { costoEnergia: 0, costiFissi: 0, iva: 0 },
-    5: { costoEnergia: 0, costiFissi: 0, iva: 0 },
-    6: { costoEnergia: 0, costiFissi: 0, iva: 0 },
+    1: { costoEnergia: 0, speseGestione: 0, oneriSistema: 0, iva: 0 },
+    2: { costoEnergia: 16, speseGestione: 19, oneriSistema: 0, iva: 5 },
+    3: { costoEnergia: 12, speseGestione: 19, oneriSistema: 0, iva: 5 },
+    4: { costoEnergia: 0, speseGestione: 0, oneriSistema: 0, iva: 0 },
+    5: { costoEnergia: 0, speseGestione: 0, oneriSistema: 0, iva: 0 },
+    6: { costoEnergia: 0, speseGestione: 0, oneriSistema: 0, iva: 0 },
   };
 
   state.manutenzione[1] = 0;
@@ -465,7 +465,7 @@ function renderBollette(model) {
   root.innerHTML = "";
   root.appendChild(h("h1", { class: "page-title" }, ["Bollette bimestrali"]));
   root.appendChild(h("p", { class: "page-sub" }, [
-    "Inserisci, per ciascuno dei 6 bimestri dell'anno, il costo energia, i costi fissi (trasporto, gestione contatore, oneri di sistema) e l'IVA indicati in bolletta. Il totale bolletta si calcola da solo."
+    "Inserisci, per ciascuno dei 6 bimestri dell'anno, il costo energia, le spese di gestione (trasporto e gestione contatore), gli oneri di sistema e l'IVA indicati in bolletta. Il totale bolletta si calcola da solo."
   ]));
 
   root.appendChild(yearTabs(model, uiBolletteYear, (y) => { uiBolletteYear = y; renderBollette(currentModel()); }));
@@ -481,14 +481,14 @@ function renderBollette(model) {
 
   const table = h("table", { class: "data-table" });
   table.appendChild(h("thead", {}, [h("tr", {}, [
-    h("th", { class: "left" }, ["Periodo"]), h("th", {}, ["Costo energia (€)"]), h("th", {}, ["Costi fissi (€)"]), h("th", {}, ["IVA (€)"]), h("th", {}, ["Totale bolletta (€)"]),
+    h("th", { class: "left" }, ["Periodo"]), h("th", {}, ["Costo energia (€)"]), h("th", {}, ["Spese gestione (€)"]), h("th", {}, ["Oneri di sistema (€)"]), h("th", {}, ["IVA (€)"]), h("th", {}, ["Totale bolletta (€)"]),
   ])]));
   const tbody = h("tbody");
   bimList.forEach(b => {
     const bv = bimObj[b] || {};
     const tr = h("tr");
     tr.appendChild(h("td", { class: "left" }, [BIMESTRI[b - 1]]));
-    ["costoEnergia", "costiFissi", "iva"].forEach(field => {
+    ["costoEnergia", "speseGestione", "oneriSistema", "iva"].forEach(field => {
       const input = h("input", {
         type: "number", step: "any",
         value: bv[field] === undefined || bv[field] === null ? "" : String(bv[field]),
@@ -660,7 +660,7 @@ function renderIstruzioni() {
       <li><b>Dashboard:</b> le card di sintesi (data di pareggio stimata, giorni mancanti, kWh prodotti/autoconsumati/immessi in rete ad oggi, costi con/senza impianto) e il dettaglio per anno, limitato agli anni con dati inseriti.</li>
       <li><b>Parametri:</b> dati generali dell'impianto (costo, detrazione fiscale, durata analisi) e ipotesi per gli anni non ancora compilati.</li>
       <li><b>Dati mensili:</b> inserisci ogni mese, per ciascuno degli anni, i kWh prodotti, autoconsumati, ceduti al GSE e prelevati dalla rete, il costo dell'energia in vigore quel mese e il contributo GSE ricevuto.</li>
-      <li><b>Bollette bimestrali:</b> inserisci, per ciascuno dei 6 bimestri, il costo energia, i costi fissi e l'IVA indicati in bolletta. Il totale si calcola da solo.</li>
+      <li><b>Bollette bimestrali:</b> inserisci, per ciascuno dei 6 bimestri, il costo energia, le spese di gestione, gli oneri di sistema e l'IVA indicati in bolletta. Il totale si calcola da solo.</li>
       <li><b>Manutenzione annua:</b> eventuale spesa di manutenzione, una riga per anno.</li>
       <li><b>Riepilogo annuale:</b> calcola in automatico i totali per anno, il risparmio energetico e il beneficio della detrazione fiscale.</li>
       <li><b>Grafici:</b> i quattro grafici riassuntivi, con la tabella dei valori esatti sotto ciascuno.</li>
@@ -816,7 +816,8 @@ function drawBillChart(id, model) {
       labels,
       datasets: [
         { label: "Costo energia", data: model.rows.map(r => r.V), backgroundColor: t.s1, stack: "c" },
-        { label: "Costi fissi", data: model.rows.map(r => r.W), backgroundColor: t.s2, stack: "c" },
+        { label: "Spese gestione", data: model.rows.map(r => r.W), backgroundColor: t.s2, stack: "c" },
+        { label: "Oneri di sistema", data: model.rows.map(r => r.Y), backgroundColor: t.s3, stack: "c" },
         { label: "IVA", data: model.rows.map(r => r.X), backgroundColor: t.s4, stack: "c", borderRadius: 4 },
       ],
     },
@@ -869,8 +870,8 @@ function renderGrafici(model) {
       cols: ["Anno solare", "Risparmio energetico (€)", "Rata detrazione (€)", "Beneficio totale (€)"],
       rows: model.rows.map(r => [r.annoSolare, fmtEUR2(r.M), fmtEUR2(r.N), fmtEUR2(r.O)]) },
     { id: "chart-bill", title: "Composizione bolletta con impianto per anno", draw: (id) => drawBillChart(id, model),
-      cols: ["Anno solare", "Costo energia (€)", "Costi fissi (€)", "IVA (€)"],
-      rows: model.rows.map(r => [r.annoSolare, fmtEUR2(r.V), fmtEUR2(r.W), fmtEUR2(r.X)]) },
+      cols: ["Anno solare", "Costo energia (€)", "Spese gestione (€)", "Oneri di sistema (€)", "IVA (€)"],
+      rows: model.rows.map(r => [r.annoSolare, fmtEUR2(r.V), fmtEUR2(r.W), fmtEUR2(r.Y), fmtEUR2(r.X)]) },
   ];
 
   specs.forEach(spec => {
