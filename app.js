@@ -391,6 +391,7 @@ function renderMensili(model) {
     h("th", {}, ["kWh prelevati rete"]),
     h("th", {}, ["Costo €/kWh"]),
     h("th", {}, ["Contributo GSE (€)"]),
+    h("th", {}, ["Rimborso GSE (€/kWh)"]),
     h("th", {}, ["Verifica"]),
   ])]));
   const tbody = h("tbody");
@@ -407,6 +408,10 @@ function renderMensili(model) {
       });
       tr.appendChild(h("td", {}, [input]));
     });
+    const cedutiVal = Number(mv.kwhCeduti) || 0;
+    const gseVal = Number(mv.contributoGse) || 0;
+    const rimborsoKwh = cedutiVal > 0 ? gseVal / cedutiVal : null;
+    tr.appendChild(h("td", {}, [rimborsoKwh === null ? "—" : fmtEUR2(rimborsoKwh) + "/kWh"]));
     let verifica = "—";
     if (mv.kwhProdotti !== undefined && mv.kwhProdotti !== null && mv.kwhProdotti !== "") {
       const prod = Number(mv.kwhProdotti) || 0;
@@ -549,7 +554,7 @@ function renderRiepilogo(model) {
     h("th", { class: "left" }, ["Anno"]), h("th", { class: "left" }, ["Stato"]),
     h("th", {}, ["Produzione (kWh)"]), h("th", {}, ["Autoconsumo (kWh)"]), h("th", {}, ["Ceduto GSE (kWh)"]), h("th", {}, ["Prelevato rete (kWh)"]),
     h("th", {}, ["Costo medio (€/kWh)"]), h("th", {}, ["Costo virtuale senza impianto (€)"]), h("th", {}, ["Bolletta reale (€)"]),
-    h("th", {}, ["Contributo GSE (€)"]), h("th", {}, ["Manutenzione (€)"]), h("th", {}, ["Risparmio energetico (€)"]),
+    h("th", {}, ["Contributo GSE (€)"]), h("th", {}, ["Rimborso GSE (€/kWh)"]), h("th", {}, ["Manutenzione (€)"]), h("th", {}, ["Risparmio energetico (€)"]),
     h("th", {}, ["Rata detrazione (€)"]), h("th", {}, ["Beneficio annuo (€)"]), h("th", {}, ["Beneficio cumulato (€)"]), h("th", {}, ["Investimento residuo (€)"]),
   ])]));
   const tbody = h("tbody");
@@ -565,6 +570,7 @@ function renderRiepilogo(model) {
     tr.appendChild(h("td", {}, [fmtEUR2(r.I)]));
     tr.appendChild(h("td", {}, [fmtEUR2(r.J)]));
     tr.appendChild(h("td", {}, [fmtEUR2(r.K)]));
+    tr.appendChild(h("td", {}, [r.F > 0 ? fmtEUR2(r.K / r.F) + "/kWh" : "—"]));
     tr.appendChild(h("td", {}, [fmtEUR2(r.L)]));
     tr.appendChild(h("td", {}, [fmtEUR2(r.M)]));
     tr.appendChild(h("td", {}, [fmtEUR2(r.N)]));
