@@ -41,6 +41,23 @@ function avgMese(mesiObj, field) {
   }
   return n ? s / n : 0;
 }
+/* Costo virtuale (senza impianto) calcolato mese per mese, con il prezzo
+   del MESE GIUSTO invece che sul totale annuo moltiplicato per la media dei
+   12 prezzi: (autoconsumo_mese + prelievo_mese) x costoKwh_mese, sommato
+   sui 12 mesi. Piu' preciso se il prezzo varia nel corso dell'anno. */
+function costoVirtualeMensile(mesiObj) {
+  if (!mesiObj) return 0;
+  let s = 0;
+  for (let k = 1; k <= 12; k++) {
+    const m = mesiObj[k];
+    if (!m) continue;
+    const autoc = Number(m.kwhAutoconsumo) || 0;
+    const prel = Number(m.kwhPrelevati) || 0;
+    const prezzo = Number(m.costoKwh) || 0;
+    s += (autoc + prel) * prezzo;
+  }
+  return s;
+}
 
 /* --- helpers su "Bollette bimestrali" di un anno: {1:{...}..6:{...}} --- */
 function totaleBimestre(b) {
@@ -88,8 +105,8 @@ function computeModel(state) {
       E = sumMese(mesi, "kwhAutoconsumo");
       F = sumMese(mesi, "kwhCeduti");
       G = sumMese(mesi, "kwhPrelevati");
-      H = avgMese(mesi, "costoKwh");
-      I = (E + G) * H;
+      H = avgMese(mesi, "costoKwh"); // solo informativo (colonna "Costo medio"), non piu' usato per I
+      I = costoVirtualeMensile(mesi); // somma mese per mese col prezzo del mese giusto
       const bim = state.bollette[anno] || {};
       J = sumBollette(bim, "totale");
       K = sumMese(mesi, "contributoGse");
