@@ -411,7 +411,7 @@ function renderMensili(model) {
   root.innerHTML = "";
   root.appendChild(h("h1", { class: "page-title" }, ["Dati mensili"]));
   root.appendChild(h("p", { class: "page-sub" }, [
-    "Inserisci ogni mese i kWh prodotti, autoconsumati, ceduti al GSE e prelevati dalla rete, il costo dell'energia in vigore e il contributo GSE ricevuto. Un anno diventa “Reale” quando tutti e 12 i mesi sono compilati (anche con 0), altrimenti resta stimato dai Parametri."
+    "Inserisci ogni mese i kWh prodotti, autoconsumati, ceduti al GSE, prelevati dalla rete e il contributo GSE ricevuto. Il costo €/kWh non si inserisce più a mano: viene calcolato dal \"costo energia\" della bolletta del bimestre corrispondente (tab Bollette bimestrali), diviso i kWh prelevati. Un anno diventa “Reale” quando tutti e 12 i mesi sono compilati (anche con 0), altrimenti resta stimato dai Parametri."
   ]));
 
   root.appendChild(yearTabs(model, uiMensiliYear, (y) => { uiMensiliYear = y; renderMensili(currentModel()); }));
@@ -420,6 +420,8 @@ function renderMensili(model) {
   const isBridge = anno === 0;
   const mesiList = isBridge ? [11, 12] : [1,2,3,4,5,6,7,8,9,10,11,12];
   const mesiObj = (state.datiMensili[anno]) || {};
+  const bimObj = (state.bollette[anno]) || {};
+  const prezziBim = prezziPerBimestre(mesiObj, bimObj);
 
   const row = model.rows.find(r => r.anno === anno);
   const headerNote = isBridge
@@ -439,7 +441,7 @@ function renderMensili(model) {
     h("th", {}, ["kWh autoconsumo"]),
     h("th", {}, ["kWh ceduti GSE"]),
     h("th", {}, ["kWh prelevati rete"]),
-    h("th", {}, ["Costo €/kWh"]),
+    h("th", {}, ["Costo €/kWh (dalla bolletta)"]),
     h("th", {}, ["Contributo GSE (€)"]),
     h("th", {}, ["Rimborso GSE (€/kWh)"]),
     h("th", {}, ["Verifica"]),
@@ -449,15 +451,23 @@ function renderMensili(model) {
     const mv = mesiObj[m] || {};
     const tr = h("tr");
     tr.appendChild(h("td", { class: "left" }, [MESI[m - 1]]));
-    ["kwhProdotti", "kwhAutoconsumo", "kwhCeduti", "kwhPrelevati", "costoKwh", "contributoGse"].forEach(field => {
+    ["kwhProdotti", "kwhAutoconsumo", "kwhCeduti", "kwhPrelevati"].forEach(field => {
       const input = h("input", {
-        type: "number", step: field === "costoKwh" ? "0.001" : "any",
+        type: "number", step: "any",
         value: mv[field] === undefined || mv[field] === null ? "" : String(mv[field]),
         placeholder: "—",
         onchange: (e) => { setMonthField(anno, m, field, e.target.value); renderMensili(currentModel()); }
       });
       tr.appendChild(h("td", {}, [input]));
     });
+    const prezzoDerivato = prezziBim[Math.ceil(m / 2)];
+    tr.appendChild(h("td", {}, [fmtEUR2(prezzoDerivato) + "/kWh"]));
+    tr.appendChild(h("td", {}, [h("input", {
+      type: "number", step: "any",
+      value: mv.contributoGse === undefined || mv.contributoGse === null ? "" : String(mv.contributoGse),
+      placeholder: "—",
+      onchange: (e) => { setMonthField(anno, m, "contributoGse", e.target.value); renderMensili(currentModel()); }
+    })]));
     const cedutiVal = Number(mv.kwhCeduti) || 0;
     const gseVal = Number(mv.contributoGse) || 0;
     const rimborsoKwh = cedutiVal > 0 ? gseVal / cedutiVal : null;
@@ -709,7 +719,7 @@ function renderIstruzioni() {
     <ul>
       <li><b>Dashboard:</b> le card di sintesi (data di pareggio stimata, giorni mancanti, kWh prodotti/autoconsumati/immessi in rete ad oggi, costi con/senza impianto) e il dettaglio per anno, limitato agli anni con dati inseriti.</li>
       <li><b>Parametri:</b> dati generali dell'impianto (costo, detrazione fiscale, durata analisi) e ipotesi per gli anni non ancora compilati.</li>
-      <li><b>Dati mensili:</b> inserisci ogni mese, per ciascuno degli anni, i kWh prodotti, autoconsumati, ceduti al GSE e prelevati dalla rete, il costo dell'energia in vigore quel mese e il contributo GSE ricevuto.</li>
+      <li><b>Dati mensili:</b> inserisci ogni mese, per ciascuno degli anni, i kWh prodotti, autoconsumati, ceduti al GSE, prelevati dalla rete e il contributo GSE ricevuto. Il costo €/kWh è calcolato automaticamente dalla bolletta (vedi sotto).</li>
       <li><b>Bollette bimestrali:</b> inserisci, per ciascuno dei 6 bimestri, il costo energia, le spese di gestione, gli oneri di sistema e l'IVA indicati in bolletta. Il totale si calcola da solo.</li>
       <li><b>Manutenzione annua:</b> eventuale spesa di manutenzione, una riga per anno.</li>
       <li><b>Riepilogo annuale:</b> calcola in automatico i totali per anno, il risparmio energetico e il beneficio della detrazione fiscale.</li>
@@ -722,7 +732,8 @@ function renderIstruzioni() {
     <p>Per gli anni in “Stima”: produzione, autoconsumo, immissione in rete e costo €/kWh di mercato usano le ipotesi fisse impostate in Parametri. Il costo virtuale senza impianto usa il consumo annuo ipotizzato, allo stesso prezzo di mercato più IVA. Tutti gli altri valori (prelievo dalla rete, contributo GSE, bolletta, manutenzione) sono calcolati come MEDIA dei soli anni precedenti già marcati “Reale”. Man mano che inserisci nuovi anni reali, queste medie si aggiornano automaticamente.</p>
 
     <h3>Come viene calcolato il risparmio annuo</h3>
-    <p><b>Costo virtuale (senza impianto)</b> = per gli anni “Reale”, somma mese per mese di (kWh autoconsumati + kWh prelevati dalla rete del mese) × costo €/kWh di quello stesso mese — così ogni mese pesa col suo prezzo reale invece che con la media dell'anno. È quanto avresti pagato per TUTTO il tuo consumo se non avessi il fotovoltaico. Per gli anni “Stima”: consumo annuo ipotizzato × prezzo €/kWh di mercato × (1 + % IVA).</p>
+    <p><b>Costo €/kWh</b> non si inserisce a mano: per ogni bimestre = "costo energia" della bolletta ÷ kWh prelevati dalla rete in quel bimestre (si escludono di proposito spese di gestione, oneri di sistema e IVA, in gran parte costi fissi non proporzionali ai kWh — altrimenti un prelievo basso gonfierebbe il prezzo). Se un bimestre non ha prelievo, si usa la media dei bimestri calcolabili dello stesso anno.</p>
+    <p><b>Costo virtuale (senza impianto)</b> = per gli anni “Reale”, somma mese per mese di (kWh autoconsumati + kWh prelevati dalla rete del mese) × prezzo €/kWh del bimestre corrispondente — così ogni mese pesa col prezzo reale del suo bimestre invece che con una media dell'anno. È quanto avresti pagato per TUTTO il tuo consumo se non avessi il fotovoltaico. Per gli anni “Stima”: consumo annuo ipotizzato × prezzo €/kWh di mercato × (1 + % IVA).</p>
     <p><b>Risparmio energetico</b> = Costo virtuale − Costo bolletta realmente pagata − Spese di manutenzione + Contributo GSE ricevuto.</p>
     <p><b>Rata detrazione fiscale</b> = quota annua del contributo/detrazione sul costo dell'impianto, spalmata sui primi N anni (vedi Parametri).</p>
     <p><b>Beneficio totale annuo</b> = Risparmio energetico + Rata detrazione fiscale. <b>Beneficio cumulato</b> = somma progressiva del beneficio, anno dopo anno, confrontata con il costo iniziale LORDO dell'impianto per individuare l'anno di pareggio.</p>
