@@ -4,6 +4,7 @@
    vedeva dati diversi). Lo stato vive in un file JSON su un volume Railway
    persistente montato su STATE_DIR (default /data), cosi' sopravvive ai
    redeploy. In locale, se /data non e' scrivibile, si usa ./data.
+   (Volume /data collegato su Railway — verificato con redeploy di prova.)
    ========================================================================== */
 const express = require("express");
 const fs = require("fs");
