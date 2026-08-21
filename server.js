@@ -52,6 +52,15 @@ app.get("/api/state", (req, res) => {
   res.type("application/json").send(raw);
 });
 
+// Reset temporaneo one-shot: serviva solo a rimuovere lo stato di test creato
+// durante il rollout del backend condiviso, cosi' il primo dispositivo reale
+// che si collega puo' migrare i propri dati locali invece di trovare il seed.
+// Da rimuovere nel prossimo commit.
+app.delete("/api/state", (req, res) => {
+  try { fs.unlinkSync(STATE_FILE); } catch (e) { /* gia' assente */ }
+  res.json({ ok: true });
+});
+
 app.put("/api/state", (req, res) => {
   const body = req.body;
   if (!body || typeof body !== "object" || !body.parametri) {

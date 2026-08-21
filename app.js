@@ -87,6 +87,17 @@ let state = null;
 
 /* Stato condiviso via server (non piu' per-browser): tutti i dispositivi
    leggono/scrivono lo stesso /api/state, salvato su volume persistente. */
+const LEGACY_LOCALSTORAGE_KEY = "fv_webapp_state_v1"; // usata dalla vecchia versione solo-browser
+
+function readLegacyLocalState() {
+  try {
+    const raw = localStorage.getItem(LEGACY_LOCALSTORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && parsed.parametri ? parsed : null;
+  } catch (e) { return null; }
+}
+
 async function loadState() {
   try {
     const res = await fetch(API_STATE_URL);
@@ -95,8 +106,15 @@ async function loadState() {
       if (parsed && parsed.parametri) return parsed;
     }
   } catch (e) { /* server irraggiungibile: ricade sul seed */ }
-  const seed = buildSeedState();
-  try { await putState(seed); } catch (e) { /* il prossimo salvataggio riprovera' */ }
+  // Il server non ha ancora nulla: se questo browser ha dati della vecchia
+  // versione solo-locale, li uso come base (una tantum) invece di ripartire
+  // dal seed, cosi' non si perdono le modifiche gia' fatte su questo dispositivo.
+  const legacy = readLegacyLocalState();
+  const seed = legacy || buildSeedState();
+  try {
+    await putState(seed);
+    if (legacy) toast("Dati locali di questo browser migrati sul server condiviso");
+  } catch (e) { /* il prossimo salvataggio riprovera' */ }
   return seed;
 }
 
