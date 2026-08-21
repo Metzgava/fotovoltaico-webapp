@@ -164,6 +164,7 @@ body {
 }
 .tab { display: none; }
 .tab.active { display: block; }
+.loading-msg { color: var(--text-muted, #888); font-size: 15px; padding: 40px 0; }
 
 h1.page-title { font-size: 22px; margin: 0 0 4px; }
 p.page-sub { color: var(--text-secondary); font-size: 13.5px; margin: 0 0 22px; max-width: 900px; line-height: 1.5; }

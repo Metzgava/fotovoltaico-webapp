@@ -2,7 +2,7 @@
    app.js — stato, persistenza, rendering UI e grafici
    ========================================================================== */
 
-const STORAGE_KEY = "fv_webapp_state_v1";
+const API_STATE_URL = "/api/state";
 
 /* -------------------------------------------------------------------------
    Parametri: default + note descrittive (riprese dal foglio "Parametri")
@@ -85,19 +85,51 @@ function buildSeedState() {
    ------------------------------------------------------------------------- */
 let state = null;
 
-function loadState() {
+/* Stato condiviso via server (non piu' per-browser): tutti i dispositivi
+   leggono/scrivono lo stesso /api/state, salvato su volume persistente. */
+async function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
+    const res = await fetch(API_STATE_URL);
+    if (res.ok) {
+      const parsed = await res.json();
       if (parsed && parsed.parametri) return parsed;
     }
-  } catch (e) { /* ignora e ricade sul seed */ }
-  return buildSeedState();
+  } catch (e) { /* server irraggiungibile: ricade sul seed */ }
+  const seed = buildSeedState();
+  try { await putState(seed); } catch (e) { /* il prossimo salvataggio riprovera' */ }
+  return seed;
 }
 
+async function putState(s) {
+  const res = await fetch(API_STATE_URL, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(s),
+  });
+  if (!res.ok) throw new Error("save_failed");
+}
+
+let saveTimer = null;
+let saveInFlight = false;
+let savePending = false;
+
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushSave, 400);
+}
+
+async function flushSave() {
+  if (saveInFlight) { savePending = true; return; }
+  saveInFlight = true;
+  const snapshot = state;
+  try {
+    await putState(snapshot);
+  } catch (e) {
+    toast("Salvataggio non riuscito — controlla la connessione");
+  } finally {
+    saveInFlight = false;
+    if (savePending) { savePending = false; flushSave(); }
+  }
 }
 
 function withDerived() {
@@ -681,7 +713,7 @@ function renderIstruzioni() {
     <p>Un blocco separato “Anno 0” permette di inserire il bimestre Novembre-Dicembre, il periodo precedente all'Anno 1. Il suo risparmio energetico è una “testa di ponte” usata SOLO per determinare la data di pareggio: non si somma mai al Beneficio cumulato né al Cumulato senza detrazione, che restano puri Anno 1-N per tabelle, grafici e confronti.</p>
 
     <h3>Salvataggio dei dati</h3>
-    <p>Tutti i dati inseriti vengono salvati automaticamente nel browser (localStorage). Usa i pulsanti “Backup” / “Ripristina” nella barra laterale per esportare o importare un file di backup JSON, ad esempio per trasferire i dati su un altro dispositivo.</p>
+    <p>Tutti i dati inseriti vengono salvati automaticamente su un server condiviso: aprendo il sito da qualsiasi dispositivo vedrai sempre gli stessi dati aggiornati. Usa i pulsanti “Backup” / “Ripristina” nella barra laterale per esportare o importare un file di backup JSON, ad esempio come copia di sicurezza.</p>
   ` });
   root.appendChild(card);
 }
@@ -926,8 +958,11 @@ function importBackup(file) {
 /* ==========================================================================
    Init
    ========================================================================== */
-function init() {
-  state = loadState();
+async function init() {
+  const active = $(".tab.active");
+  if (active) active.innerHTML = '<p class="loading-msg">Caricamento dati…</p>';
+
+  state = await loadState();
 
   $all(".nav-item").forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
   $("#btn-export").addEventListener("click", exportBackup);

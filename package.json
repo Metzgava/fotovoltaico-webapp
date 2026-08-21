@@ -1,0 +1,16 @@
+{
+  "name": "fotovoltaico-webapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gestione ammortamento impianto fotovoltaico — stato condiviso tra dispositivi",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
