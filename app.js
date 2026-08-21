@@ -98,12 +98,37 @@ function readLegacyLocalState() {
   } catch (e) { return null; }
 }
 
+// Una tantum: prima che il costo €/kWh diventasse un campo sovrascrivibile,
+// era un input manuale sempre valorizzato (anche col vecchio calcolo). Quei
+// valori sono rimasti nei dati salvati e verrebbero ora riletti come
+// sovrascritture volute dall'utente, falsando i calcoli in silenzio. Li
+// azzero una sola volta, cosi' il prezzo torna a essere quello derivato
+// dalla bolletta finche' l'utente non inserisce davvero un valore nuovo.
+function stripCostoKwhLegacy(s) {
+  if (!s || s._costoKwhMigrato) return s;
+  const mensili = s.datiMensili || {};
+  for (const anno of Object.keys(mensili)) {
+    const mesi = mensili[anno] || {};
+    for (const k of Object.keys(mesi)) {
+      if (mesi[k] && "costoKwh" in mesi[k]) delete mesi[k].costoKwh;
+    }
+  }
+  s._costoKwhMigrato = true;
+  return s;
+}
+
 async function loadState() {
   try {
     const res = await fetch(API_STATE_URL);
     if (res.ok) {
       const parsed = await res.json();
-      if (parsed && parsed.parametri) return parsed;
+      if (parsed && parsed.parametri) {
+        if (!parsed._costoKwhMigrato) {
+          stripCostoKwhLegacy(parsed);
+          try { await putState(parsed); } catch (e) { /* riprovera' al prossimo salvataggio */ }
+        }
+        return parsed;
+      }
     }
   } catch (e) { /* server irraggiungibile: ricade sul seed */ }
   // Il server non ha ancora nulla: se questo browser ha dati della vecchia
@@ -111,6 +136,7 @@ async function loadState() {
   // dal seed, cosi' non si perdono le modifiche gia' fatte su questo dispositivo.
   const legacy = readLegacyLocalState();
   const seed = legacy || buildSeedState();
+  stripCostoKwhLegacy(seed);
   try {
     await putState(seed);
     if (legacy) toast("Dati locali di questo browser migrati sul server condiviso");
@@ -411,7 +437,7 @@ function renderMensili(model) {
   root.innerHTML = "";
   root.appendChild(h("h1", { class: "page-title" }, ["Dati mensili"]));
   root.appendChild(h("p", { class: "page-sub" }, [
-    "Inserisci ogni mese i kWh prodotti, autoconsumati, ceduti al GSE, prelevati dalla rete e il contributo GSE ricevuto. Il costo €/kWh non si inserisce più a mano: viene calcolato dal \"costo energia\" della bolletta del bimestre corrispondente (tab Bollette bimestrali), diviso i kWh prelevati. Un anno diventa “Reale” quando tutti e 12 i mesi sono compilati (anche con 0), altrimenti resta stimato dai Parametri."
+    "Inserisci ogni mese i kWh prodotti, autoconsumati, ceduti al GSE, prelevati dalla rete e il contributo GSE ricevuto. Il costo €/kWh viene calcolato automaticamente dal \"costo energia\" della bolletta del bimestre corrispondente (tab Bollette bimestrali), diviso i kWh prelevati — ma puoi sempre sovrascriverlo inserendo un valore nel campo del mese: lasciandolo vuoto torna al calcolo automatico. Un anno diventa “Reale” quando tutti e 12 i mesi sono compilati (anche con 0), altrimenti resta stimato dai Parametri."
   ]));
 
   root.appendChild(yearTabs(model, uiMensiliYear, (y) => { uiMensiliYear = y; renderMensili(currentModel()); }));
@@ -441,7 +467,7 @@ function renderMensili(model) {
     h("th", {}, ["kWh autoconsumo"]),
     h("th", {}, ["kWh ceduti GSE"]),
     h("th", {}, ["kWh prelevati rete"]),
-    h("th", {}, ["Costo €/kWh (dalla bolletta)"]),
+    h("th", {}, ["Costo €/kWh (auto, sovrascrivibile)"]),
     h("th", {}, ["Contributo GSE (€)"]),
     h("th", {}, ["Rimborso GSE (€/kWh)"]),
     h("th", {}, ["Verifica"]),
@@ -461,7 +487,15 @@ function renderMensili(model) {
       tr.appendChild(h("td", {}, [input]));
     });
     const prezzoDerivato = prezziBim[Math.ceil(m / 2)];
-    tr.appendChild(h("td", {}, [fmtEUR2(prezzoDerivato) + "/kWh"]));
+    const haManuale = mv.costoKwh !== undefined && mv.costoKwh !== null && mv.costoKwh !== "";
+    const prezzoInput = h("input", {
+      type: "number", step: "any",
+      value: haManuale ? String(mv.costoKwh) : "",
+      placeholder: "auto " + fmtEUR2(prezzoDerivato),
+      title: "Lascia vuoto per usare il prezzo calcolato dalla bolletta. Inserisci un valore per sovrascriverlo.",
+      onchange: (e) => { setMonthField(anno, m, "costoKwh", e.target.value); renderMensili(currentModel()); }
+    });
+    tr.appendChild(h("td", {}, [prezzoInput]));
     tr.appendChild(h("td", {}, [h("input", {
       type: "number", step: "any",
       value: mv.contributoGse === undefined || mv.contributoGse === null ? "" : String(mv.contributoGse),
@@ -732,7 +766,7 @@ function renderIstruzioni() {
     <p>Per gli anni in “Stima”: produzione, autoconsumo, immissione in rete e costo €/kWh di mercato usano le ipotesi fisse impostate in Parametri. Il costo virtuale senza impianto usa il consumo annuo ipotizzato, allo stesso prezzo di mercato più IVA. Tutti gli altri valori (prelievo dalla rete, contributo GSE, bolletta, manutenzione) sono calcolati come MEDIA dei soli anni precedenti già marcati “Reale”. Man mano che inserisci nuovi anni reali, queste medie si aggiornano automaticamente.</p>
 
     <h3>Come viene calcolato il risparmio annuo</h3>
-    <p><b>Costo €/kWh</b> non si inserisce a mano: per ogni bimestre = "costo energia" della bolletta ÷ kWh prelevati dalla rete in quel bimestre (si escludono di proposito spese di gestione, oneri di sistema e IVA, in gran parte costi fissi non proporzionali ai kWh — altrimenti un prelievo basso gonfierebbe il prezzo). Se un bimestre non ha prelievo, si usa la media dei bimestri calcolabili dello stesso anno.</p>
+    <p><b>Costo €/kWh</b> si calcola automaticamente per ogni bimestre come "costo energia" della bolletta ÷ kWh prelevati dalla rete in quel bimestre (si escludono di proposito spese di gestione, oneri di sistema e IVA, in gran parte costi fissi non proporzionali ai kWh — altrimenti un prelievo basso gonfierebbe il prezzo). Se un bimestre non ha prelievo, si usa la media dei bimestri calcolabili dello stesso anno. Puoi comunque sovrascrivere il valore per ogni singolo mese nella tabella "Dati mensili": in tal caso viene usato il tuo valore al posto di quello calcolato, e tutto (risparmio, pareggio, dashboard) si ricalcola di conseguenza. Per tornare al calcolo automatico basta svuotare il campo.</p>
     <p><b>Costo virtuale (senza impianto)</b> = per gli anni “Reale”, somma mese per mese di (kWh autoconsumati + kWh prelevati dalla rete del mese) × prezzo €/kWh del bimestre corrispondente — così ogni mese pesa col prezzo reale del suo bimestre invece che con una media dell'anno. È quanto avresti pagato per TUTTO il tuo consumo se non avessi il fotovoltaico. Per gli anni “Stima”: consumo annuo ipotizzato × prezzo €/kWh di mercato × (1 + % IVA).</p>
     <p><b>Risparmio energetico</b> = Costo virtuale − Costo bolletta realmente pagata − Spese di manutenzione + Contributo GSE ricevuto.</p>
     <p><b>Rata detrazione fiscale</b> = quota annua del contributo/detrazione sul costo dell'impianto, spalmata sui primi N anni (vedi Parametri).</p>

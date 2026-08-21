@@ -63,21 +63,31 @@ function prezziPerBimestre(mesiObj, bimObj) {
   return prezzi;
 }
 
-/* Costo virtuale (senza impianto) calcolato mese per mese, col prezzo del
-   BIMESTRE GIUSTO derivato dalla bolletta (vedi prezziPerBimestre) invece
-   che su un valore inserito a mano o sulla media dell'intero anno:
-   (autoconsumo_mese + prelievo_mese) x prezzo_del_bimestre, sommato sui 12
-   mesi. Piu' preciso se il prezzo varia nel corso dell'anno. */
+/* Prezzo €/kWh EFFETTIVO di un mese: se l'utente lo ha inserito a mano nel
+   campo "costo €/kWh" del mese, si usa quello; altrimenti si usa il prezzo
+   derivato dalla bolletta del bimestre (vedi prezziPerBimestre). Cosi' il
+   valore automatico resta il default, ma resta sempre possibile correggerlo
+   mese per mese e far ricalcolare tutto di conseguenza. */
+function prezzoEffettivoMese(m, prezziBim, k) {
+  const manuale = m && m.costoKwh;
+  if (manuale !== null && manuale !== undefined && manuale !== "") return Number(manuale) || 0;
+  return prezziBim[Math.ceil(k / 2)];
+}
+
+/* Costo virtuale (senza impianto) calcolato mese per mese, col prezzo
+   effettivo di ogni mese (manuale se inserito, altrimenti derivato dalla
+   bolletta del bimestre): (autoconsumo_mese + prelievo_mese) x prezzo,
+   sommato sui 12 mesi. Piu' preciso se il prezzo varia nel corso dell'anno. */
 function costoVirtualeMensile(mesiObj, bimObj) {
   if (!mesiObj) return 0;
-  const prezzi = prezziPerBimestre(mesiObj, bimObj);
+  const prezziBim = prezziPerBimestre(mesiObj, bimObj);
   let s = 0;
   for (let k = 1; k <= 12; k++) {
     const m = mesiObj[k];
     if (!m) continue;
     const autoc = Number(m.kwhAutoconsumo) || 0;
     const prel = Number(m.kwhPrelevati) || 0;
-    const prezzo = prezzi[Math.ceil(k / 2)];
+    const prezzo = prezzoEffettivoMese(m, prezziBim, k);
     s += (autoc + prel) * prezzo;
   }
   return s;
@@ -130,8 +140,8 @@ function computeModel(state) {
       E = sumMese(mesi, "kwhAutoconsumo");
       F = sumMese(mesi, "kwhCeduti");
       G = sumMese(mesi, "kwhPrelevati");
-      I = costoVirtualeMensile(mesi, bim); // somma mese per mese, prezzo derivato dalla bolletta del bimestre
-      H = avgOrZero(Object.values(prezziPerBimestre(mesi, bim))); // solo informativo (colonna "Costo medio")
+      I = costoVirtualeMensile(mesi, bim); // somma mese per mese, prezzo effettivo (manuale se inserito, altrimenti dalla bolletta)
+      H = (E + G) > 0 ? I / (E + G) : 0; // prezzo medio EFFETTIVO realmente usato, solo informativo
       J = sumBollette(bim, "totale");
       K = sumMese(mesi, "contributoGse");
       L = Number((state.manutenzione[anno] ?? 0)) || 0;
@@ -181,7 +191,7 @@ function computeModel(state) {
   const G0 = sumMese(mesi0, "kwhPrelevati");
   const bim0 = state.bollette[0] || {};
   const I0 = costoVirtualeMensile(mesi0, bim0);
-  const H0 = avgOrZero(Object.values(prezziPerBimestre(mesi0, bim0)));
+  const H0 = (E0 + G0) > 0 ? I0 / (E0 + G0) : 0;
   const J0 = sumBollette(bim0, "totale");
   const K0 = sumMese(mesi0, "contributoGse");
   const L0 = Number((state.manutenzione[0] ?? 0)) || 0;
