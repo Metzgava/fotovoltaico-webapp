@@ -1,3 +1,6 @@
 node_modules/
 data/
 backups/
+
+# Spazzatura di macOS: la crea il Finder, non dice niente a nessuno.
+.DS_Store
